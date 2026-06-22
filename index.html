@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>每日记账</title>
+
+<!-- iPhone 添加到主屏幕：全屏 App 效果 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="每日记账">
+<meta name="theme-color" content="#4f7cff">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #8a8f99;
+    --accent: #4f7cff;
+    --danger: #ff5a5f;
+    --line: #ececf0;
+    --radius: 16px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+  .wrap {
+    max-width: 480px; margin: 0 auto;
+    padding: 0 calc(16px + env(safe-area-inset-left)) 0 calc(16px + env(safe-area-inset-right));
+  }
+
+  header {
+    padding: calc(28px + env(safe-area-inset-top)) 0 18px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .date { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* 总览卡 */
+  .summary {
+    background: linear-gradient(135deg, #4f7cff, #6a5cff);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .summary .label { font-size: 13px; opacity: 0.85; }
+  .summary .amount { font-size: 34px; font-weight: 700; margin-top: 6px; letter-spacing: -1px; }
+  .summary .sub {
+    display: flex; justify-content: space-between;
+    margin-top: 18px; font-size: 13px; opacity: 0.9;
+  }
+  .summary .sub span b { display: block; font-size: 16px; font-weight: 600; margin-top: 2px; }
+
+  /* 输入区 */
+  .add-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 16px;
+    box-shadow: var(--shadow);
+  }
+  .row { display: flex; gap: 10px; }
+  input, select {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 13px 14px;
+    font-size: 16px;
+    background: #fafbfc;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); background: #fff; }
+  .cats { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .cat {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 9px 0;
+    border-radius: 10px;
+    background: #f2f3f7;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+    min-width: 56px;
+  }
+  .cat.active { background: var(--accent); color: #fff; }
+  button.add {
+    width: 100%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button.add:active { transform: scale(0.99); opacity: 0.9; }
+
+  /* 列表 */
+  .list-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 24px 4px 10px;
+  }
+  .list-head h2 { font-size: 15px; margin: 0; }
+  .list-head .clear { font-size: 13px; color: var(--muted); cursor: pointer; }
+
+  .day-group { margin-bottom: 16px; }
+  .day-label {
+    font-size: 12px; color: var(--muted);
+    margin: 0 4px 8px; display: flex; justify-content: space-between;
+  }
+  .item {
+    display: flex; align-items: center;
+    background: var(--card);
+    border-radius: 14px;
+    padding: 13px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+  }
+  .item .icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: #eef2ff; color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; margin-right: 12px; flex-shrink: 0;
+  }
+  .item .meta { flex: 1; min-width: 0; }
+  .item .meta .name { font-size: 15px; font-weight: 500; }
+  .item .meta .time { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item .amt { font-size: 16px; font-weight: 600; }
+  .item .amt.plus { color: #2eb872; }
+  .item .icon.income { background: #e7f8ef; }
+  .item .del {
+    margin-left: 12px; color: var(--muted); cursor: pointer;
+    font-size: 18px; padding: 4px;
+  }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+
+  /* 选项卡 */
+  .tabs {
+    display: flex; gap: 6px;
+    background: #eceef3; border-radius: 12px; padding: 4px;
+    margin: 24px 0 14px;
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 9px 0;
+    font-size: 14px; border-radius: 9px; cursor: pointer;
+    color: var(--muted); transition: all .15s;
+  }
+  .tab.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+
+  /* 月度总结卡 */
+  .month-card {
+    background: var(--card); border-radius: var(--radius);
+    padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow);
+  }
+  .month-card .top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .month-card .top .m { font-size: 15px; font-weight: 600; }
+  .month-card .top .m small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+  .month-card .top .total { font-size: 20px; font-weight: 700; }
+  .bar { display: flex; height: 8px; border-radius: 5px; overflow: hidden; margin-bottom: 14px; background: #f0f1f5; }
+  .bar i { display: block; height: 100%; }
+  .breakdown { display: flex; flex-direction: column; gap: 9px; }
+  .brk-row { display: flex; align-items: center; font-size: 13px; }
+  .brk-row .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+  .brk-row .k { flex: 1; }
+  .brk-row .pct { color: var(--muted); margin: 0 10px; }
+  .brk-row .v { font-weight: 600; }
+
+  /* 币种切换 */
+  .cur-switch {
+    display: inline-flex; gap: 4px; margin-top: 12px;
+    background: #eceef3; border-radius: 10px; padding: 3px;
+  }
+  .cur-switch span {
+    padding: 5px 14px; font-size: 12px; border-radius: 8px;
+    color: var(--muted); cursor: pointer; transition: all .15s;
+  }
+  .cur-switch span.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+
+  /* 工资 / 剩余 */
+  .summary .label { display: flex; align-items: center; justify-content: space-between; }
+  .edit-salary {
+    font-size: 12px; opacity: 0.9; cursor: pointer;
+    background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 8px;
+  }
+  .summary .sub span b { font-size: 14px; }
+  .prog { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.25); margin-top: 14px; overflow: hidden; }
+  .prog i { display: block; height: 100%; background: #fff; border-radius: 4px; transition: width .3s; width: 0; }
+  .amount.over { color: #ffe08a; }
+
+  /* 环比徽标 */
+  .mom { font-size: 12px; margin-top: 4px; font-weight: 500; }
+  .mom.up { color: var(--danger); }
+  .mom.down { color: #2eb872; }
+  .mom.flat { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>每日记账</h1>
+    <div class="date" id="todayDate"></div>
+  </header>
+
+  <div class="summary">
+    <div class="label">当前余额 <span class="edit-salary" id="editSalary">加工资 ＋</span></div>
+    <div class="amount" id="remain">0円</div>
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="sub">
+      <span>累计工资<b id="salaryShow">0円</b></span>
+      <span style="text-align:center">本月已花<b id="monthTotal">0円</b></span>
+      <span style="text-align:right">今日已花<b id="todayTotal">0円</b></span>
+    </div>
+  </div>
+
+  <div class="add-card">
+    <div class="row">
+      <input type="number" id="amount" placeholder="金额" inputmode="decimal" step="0.01">
+      <input type="text" id="note" placeholder="备注（可选）">
+    </div>
+    <div class="cats" id="cats"></div>
+    <button class="add" id="addBtn">＋ 记一笔</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="detail">消费明细</div>
+    <div class="tab" data-tab="monthly">月度总结</div>
+  </div>
+
+  <div id="detailView">
+    <div class="list-head">
+      <span></span>
+      <span class="clear" id="clearAll">清空</span>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div id="monthlyView" style="display:none">
+    <div id="monthlyList"></div>
+  </div>
+</div>
+
+<script>
+const CATS = [
+  { key: '餐饮', icon: '🍜', color: '#ff8a4f' },
+  { key: '交通', icon: '🚇', color: '#4f7cff' },
+  { key: '购物', icon: '🛍️', color: '#ff5a8a' },
+  { key: '居住', icon: '🏠', color: '#3ec98a' },
+  { key: '娱乐', icon: '🎮', color: '#a85cff' },
+  { key: '其他', icon: '📌', color: '#8a8f99' },
+];
+const colorOf = k => (CATS.find(c => c.key === k) || {}).color || '#8a8f99';
+let selectedCat = '餐饮';
+let records = JSON.parse(localStorage.getItem('expenses') || '[]');
+let currency = 'JPY';
+
+const $ = id => document.getElementById(id);
+const fmt = n => {
+  const v = Number(n);
+  if (currency === 'JPY') {
+    return Math.round(v).toLocaleString('ja-JP') + '円';
+  }
+  return '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+const iconOf = k => (CATS.find(c => c.key === k) || {}).icon || '📌';
+
+function save() { localStorage.setItem('expenses', JSON.stringify(records)); }
+
+function renderCats() {
+  $('cats').innerHTML = CATS.map(c =>
+    `<div class="cat ${c.key === selectedCat ? 'active' : ''}" data-k="${c.key}">${c.icon} ${c.key}</div>`
+  ).join('');
+  document.querySelectorAll('.cat').forEach(el => {
+    el.onclick = () => { selectedCat = el.dataset.k; renderCats(); };
+  });
+}
+
+function dayKey(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function timeOf(ts) {
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function render() {
+  const now = new Date();
+  const todayK = dayKey(now.getTime());
+  const monthPrefix = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+  let todaySum = 0, monthSum = 0, totalIncome = 0, totalExpense = 0;
+  records.forEach(r => {
+    const k = dayKey(r.ts);
+    if (r.type === 'income') {
+      totalIncome += r.amount;
+    } else {
+      totalExpense += r.amount;
+      if (k === todayK) todaySum += r.amount;
+      if (k.startsWith(monthPrefix)) monthSum += r.amount;
+    }
+  });
+  $('todayTotal').textContent = fmt(todaySum);
+  $('monthTotal').textContent = fmt(monthSum);
+  $('salaryShow').textContent = fmt(totalIncome);
+
+  // 当前余额 = 累计工资 - 累计支出（会滚动到下月）
+  const balance = totalIncome - totalExpense;
+  $('remain').textContent = fmt(balance);
+  $('remain').classList.toggle('over', balance < 0);
+  // 进度条:已用掉收入的比例
+  const pct = totalIncome > 0 ? Math.min(totalExpense / totalIncome * 100, 100) : 0;
+  $('progBar').style.width = pct + '%';
+  $('progBar').style.background = balance < 0 ? '#ffe08a' : '#fff';
+
+  // 按天分组
+  const groups = {};
+  [...records].sort((a,b) => b.ts - a.ts).forEach(r => {
+    const k = dayKey(r.ts);
+    (groups[k] = groups[k] || []).push(r);
+  });
+
+  const keys = Object.keys(groups);
+  if (keys.length === 0) {
+    $('list').innerHTML = '<div class="empty">还没有记账，记下第一笔吧 ✏️</div>';
+    return;
+  }
+
+  $('list').innerHTML = keys.map(k => {
+    const daySpend = groups[k].reduce((s, r) => s + (r.type === 'income' ? 0 : r.amount), 0);
+    const label = k === todayK ? '今天' : k;
+    const items = groups[k].map(r => {
+      if (r.type === 'income') {
+        return `<div class="item">
+          <div class="icon income">💰</div>
+          <div class="meta">
+            <div class="name">工资${r.note ? ' · ' + escapeHtml(r.note) : ''}</div>
+            <div class="time">${timeOf(r.ts)}</div>
+          </div>
+          <div class="amt plus">+${fmt(r.amount)}</div>
+          <div class="del" data-id="${r.ts}">✕</div>
+        </div>`;
+      }
+      return `<div class="item">
+        <div class="icon">${iconOf(r.cat)}</div>
+        <div class="meta">
+          <div class="name">${r.cat}${r.note ? ' · ' + escapeHtml(r.note) : ''}</div>
+          <div class="time">${timeOf(r.ts)}</div>
+        </div>
+        <div class="amt">${fmt(r.amount)}</div>
+        <div class="del" data-id="${r.ts}">✕</div>
+      </div>`;
+    }).join('');
+    return `<div class="day-group">
+      <div class="day-label"><span>${label}</span><span>支出 ${fmt(daySpend)}</span></div>
+      ${items}
+    </div>`;
+  }).join('');
+
+  document.querySelectorAll('.del').forEach(el => {
+    el.onclick = () => {
+      records = records.filter(r => String(r.ts) !== el.dataset.id);
+      save(); render();
+    };
+  });
+
+  if ($('monthlyView').style.display !== 'none') renderMonthly();
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function addRecord() {
+  const amount = parseFloat($('amount').value);
+  if (!amount || amount <= 0) { $('amount').focus(); return; }
+  records.push({
+    ts: Date.now(),
+    amount: amount,
+    cat: selectedCat,
+    note: $('note').value.trim(),
+  });
+  save();
+  $('amount').value = '';
+  $('note').value = '';
+  $('amount').focus();
+  render();
+}
+
+function monthLabel(prefix) {
+  const [y, m] = prefix.split('-');
+  return y + '年' + Number(m) + '月';
+}
+
+function renderMonthly() {
+  // 按月份聚合
+  const months = {};
+  records.forEach(r => {
+    if (r.type === 'income') return; // 工资不计入支出总结
+    const d = new Date(r.ts);
+    const prefix = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    if (!months[prefix]) months[prefix] = { total: 0, count: 0, cats: {} };
+    months[prefix].total += r.amount;
+    months[prefix].count++;
+    months[prefix].cats[r.cat] = (months[prefix].cats[r.cat] || 0) + r.amount;
+  });
+
+  const keys = Object.keys(months).sort().reverse();
+  const nowPrefix = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
+
+  if (keys.length === 0) {
+    $('monthlyList').innerHTML = '<div class="empty">还没有记录,记账后这里会按月自动总结 📊</div>';
+    return;
+  }
+
+  $('monthlyList').innerHTML = keys.map(k => {
+    const m = months[k];
+    const isNow = k === nowPrefix;
+    // 各分类排序
+    const entries = Object.entries(m.cats).sort((a,b) => b[1] - a[1]);
+    const bar = entries.map(([cat, v]) =>
+      `<i style="width:${(v/m.total*100).toFixed(1)}%;background:${colorOf(cat)}"></i>`
+    ).join('');
+    const rows = entries.map(([cat, v]) => `
+      <div class="brk-row">
+        <span class="dot" style="background:${colorOf(cat)}"></span>
+        <span class="k">${iconOf(cat)} ${cat}</span>
+        <span class="pct">${(v/m.total*100).toFixed(0)}%</span>
+        <span class="v">${fmt(v)}</span>
+      </div>`).join('');
+    // 环比上月
+    const [py, pm] = k.split('-').map(Number);
+    const prevDate = new Date(py, pm - 2, 1);
+    const prevKey = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0');
+    const prev = months[prevKey];
+    let momHtml = '';
+    if (prev && prev.total > 0) {
+      const diff = m.total - prev.total;
+      const pct = (diff / prev.total * 100);
+      const cls = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'flat');
+      const arrow = diff > 0 ? '↑' : (diff < 0 ? '↓' : '–');
+      const word = diff > 0 ? '多花' : (diff < 0 ? '少花' : '持平');
+      momHtml = `<div class="mom ${cls}">${arrow} 较上月${word} ${fmt(Math.abs(diff))}（${Math.abs(pct).toFixed(0)}%）</div>`;
+    } else {
+      momHtml = `<div class="mom flat">无上月数据可对比</div>`;
+    }
+    return `<div class="month-card">
+      <div class="top">
+        <div class="m">${monthLabel(k)}${isNow ? '<small>本月·进行中</small>' : '<small>已结算</small>'}</div>
+        <div class="total">${fmt(m.total)}</div>
+      </div>
+      ${momHtml}
+      <div class="bar" style="margin-top:10px">${bar}</div>
+      <div class="breakdown">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+// 选项卡切换
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const isDetail = t.dataset.tab === 'detail';
+    $('detailView').style.display = isDetail ? '' : 'none';
+    $('monthlyView').style.display = isDetail ? 'none' : '';
+    if (!isDetail) renderMonthly();
+  };
+});
+
+$('addBtn').onclick = addRecord;
+$('note').addEventListener('keydown', e => { if (e.key === 'Enter') addRecord(); });
+$('amount').addEventListener('keydown', e => { if (e.key === 'Enter') addRecord(); });
+$('clearAll').onclick = () => {
+  if (records.length && confirm('确定清空全部记账记录吗？')) { records = []; save(); render(); }
+};
+
+// 加工资（累计进余额）
+$('editSalary').onclick = () => {
+  const input = prompt('这次发了多少工资？（日元）\n会直接加进当前余额，上月没花完的会保留。', '');
+  if (input === null) return;
+  const v = parseFloat(input);
+  if (isNaN(v) || v <= 0) { alert('请输入有效金额'); return; }
+  const note = prompt('备注（可留空，例如「6月工资」）：', '') || '';
+  records.push({ ts: Date.now(), amount: Math.round(v), type: 'income', note: note.trim() });
+  save();
+  render();
+};
+
+// 日元为整数
+$('amount').step = '1';
+$('amount').placeholder = '金额（円）';
+
+$('todayDate').textContent = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+renderCats();
+render();
+
+// 离线支持（添加到主屏幕后无需联网）
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

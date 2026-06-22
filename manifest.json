@@ -1,0 +1,17 @@
+{
+  "name": "每日记账",
+  "short_name": "记账",
+  "description": "简单的每日开支与工资记账",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#4f7cff",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
