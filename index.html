@@ -205,6 +205,14 @@
   .prog i { display: block; height: 100%; background: #fff; border-radius: 4px; transition: width .3s; width: 0; }
   .amount.over { color: #ffe08a; }
 
+  /* 货币选择 */
+  .cur-select {
+    margin-top: 12px; border: 1px solid var(--line); background: #fff;
+    border-radius: 10px; padding: 7px 12px; font-size: 13px; color: var(--text);
+    outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
+    text-align: center; text-align-last: center;
+  }
+
   /* 环比徽标 */
   .mom { font-size: 12px; margin-top: 4px; font-weight: 500; }
   .mom.up { color: var(--danger); }
@@ -217,6 +225,7 @@
   <header>
     <h1>每日记账</h1>
     <div class="date" id="todayDate"></div>
+    <select id="curSelect" class="cur-select"></select>
   </header>
 
   <div class="summary">
@@ -269,15 +278,35 @@ const CATS = [
 const colorOf = k => (CATS.find(c => c.key === k) || {}).color || '#8a8f99';
 let selectedCat = '餐饮';
 let records = JSON.parse(localStorage.getItem('expenses') || '[]');
-let currency = 'JPY';
+// 支持的货币：symbol 符号 / dec 小数位 / after 符号是否放在数字后 / label 名称
+const CURRENCIES = {
+  JPY: { symbol: '円', dec: 0, after: true,  label: '日元 JPY' },
+  CNY: { symbol: '¥',  dec: 2, after: false, label: '人民币 CNY' },
+  USD: { symbol: '$',  dec: 2, after: false, label: '美元 USD' },
+  EUR: { symbol: '€',  dec: 2, after: false, label: '欧元 EUR' },
+  GBP: { symbol: '£',  dec: 2, after: false, label: '英镑 GBP' },
+  KRW: { symbol: '₩',  dec: 0, after: false, label: '韩元 KRW' },
+  HKD: { symbol: 'HK$',dec: 2, after: false, label: '港币 HKD' },
+  TWD: { symbol: 'NT$',dec: 0, after: false, label: '新台币 TWD' },
+  SGD: { symbol: 'S$', dec: 2, after: false, label: '新加坡元 SGD' },
+  AUD: { symbol: 'A$', dec: 2, after: false, label: '澳元 AUD' },
+  CAD: { symbol: 'C$', dec: 2, after: false, label: '加元 CAD' },
+  THB: { symbol: '฿',  dec: 2, after: false, label: '泰铢 THB' },
+  MYR: { symbol: 'RM', dec: 2, after: false, label: '马来西亚 MYR' },
+  PHP: { symbol: '₱',  dec: 2, after: false, label: '菲律宾 PHP' },
+  VND: { symbol: '₫',  dec: 0, after: true,  label: '越南盾 VND' },
+  INR: { symbol: '₹',  dec: 2, after: false, label: '印度卢比 INR' },
+};
+let currency = localStorage.getItem('currency') || 'JPY';
+if (!CURRENCIES[currency]) currency = 'JPY';
+const curInfo = () => CURRENCIES[currency];
 
 const $ = id => document.getElementById(id);
 const fmt = n => {
-  const v = Number(n);
-  if (currency === 'JPY') {
-    return Math.round(v).toLocaleString('ja-JP') + '円';
-  }
-  return '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const c = curInfo();
+  const neg = Number(n) < 0 ? '-' : '';
+  const num = Math.abs(Number(n)).toLocaleString('en-US', { minimumFractionDigits: c.dec, maximumFractionDigits: c.dec });
+  return neg + (c.after ? num + c.symbol : c.symbol + num);
 };
 const iconOf = k => (CATS.find(c => c.key === k) || {}).icon || '📌';
 
@@ -393,7 +422,7 @@ function addRecord() {
   if (!amount || amount <= 0) { $('amount').focus(); return; }
   records.push({
     ts: Date.now(),
-    amount: amount,
+    amount: roundCur(amount),
     cat: selectedCat,
     note: $('note').value.trim(),
   });
@@ -492,21 +521,38 @@ $('clearAll').onclick = () => {
   if (records.length && confirm('确定清空全部记账记录吗？')) { records = []; save(); render(); }
 };
 
+// 按当前货币的小数位取整
+const roundCur = v => { const d = curInfo().dec; const p = Math.pow(10, d); return Math.round(v * p) / p; };
+
 // 加工资（累计进余额）
 $('editSalary').onclick = () => {
-  const input = prompt('这次发了多少工资？（日元）\n会直接加进当前余额，上月没花完的会保留。', '');
+  const input = prompt('这次发了多少工资？\n会直接加进当前余额，上月没花完的会保留。', '');
   if (input === null) return;
   const v = parseFloat(input);
   if (isNaN(v) || v <= 0) { alert('请输入有效金额'); return; }
   const note = prompt('备注（可留空，例如「6月工资」）：', '') || '';
-  records.push({ ts: Date.now(), amount: Math.round(v), type: 'income', note: note.trim() });
+  records.push({ ts: Date.now(), amount: roundCur(v), type: 'income', note: note.trim() });
   save();
   render();
 };
 
-// 日元为整数
-$('amount').step = '1';
-$('amount').placeholder = '金额（円）';
+// 货币选择
+function applyCurrency() {
+  const c = curInfo();
+  $('amount').step = c.dec === 0 ? '1' : '0.01';
+  $('amount').placeholder = '金额（' + c.symbol + '）';
+}
+$('curSelect').innerHTML = Object.entries(CURRENCIES)
+  .map(([code, c]) => `<option value="${code}">${c.symbol}　${c.label}</option>`).join('');
+$('curSelect').value = currency;
+$('curSelect').onchange = () => {
+  currency = $('curSelect').value;
+  localStorage.setItem('currency', currency);
+  applyCurrency();
+  render();
+  if ($('monthlyView').style.display !== 'none') renderMonthly();
+};
+applyCurrency();
 
 $('todayDate').textContent = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
 renderCats();
