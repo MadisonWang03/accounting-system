@@ -61,6 +61,30 @@
   }
   .summary .sub span b { display: block; font-size: 16px; font-weight: 600; margin-top: 2px; }
 
+  /* 预算卡 */
+  .budget-card {
+    background: var(--card); border-radius: var(--radius);
+    padding: 16px; margin-top: 16px; box-shadow: var(--shadow);
+  }
+  .budget-top { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
+  .edit-budget {
+    font-size: 12px; font-weight: 400; color: var(--muted); cursor: pointer;
+    background: #f2f3f7; padding: 5px 10px; border-radius: 8px;
+  }
+  .budget-bar { height: 10px; border-radius: 6px; background: #eef0f4; overflow: hidden; margin: 12px 0 8px; }
+  .budget-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: #2eb872; transition: width .3s, background .3s; }
+  .budget-bar.warn i { background: #ffb22e; }
+  .budget-bar.over i { background: var(--danger); }
+  .budget-note { font-size: 12.5px; color: var(--muted); }
+  .budget-note.warn { color: #d98a00; font-weight: 500; }
+  .budget-note.over { color: var(--danger); font-weight: 600; }
+
+  /* 搜索 / 筛选 */
+  .filter-bar { display: flex; gap: 8px; margin: 0 0 12px; }
+  .filter-bar #searchInput { flex: 1; font-size: 14px; padding: 10px 12px; }
+  .filter-cat { width: auto; min-width: 92px; font-size: 14px; padding: 10px 12px; cursor: pointer; }
+  .filter-result { font-size: 13px; color: var(--accent); font-weight: 600; margin: 0 4px 10px; }
+
   /* 输入区 */
   .add-card {
     background: var(--card);
@@ -191,6 +215,10 @@
   .brk-row .k { flex: 1; }
   .brk-row .pct { color: var(--muted); margin: 0 10px; }
   .brk-row .v { font-weight: 600; }
+  .pie-wrap { display: flex; justify-content: center; margin: 6px 0 16px; }
+  .pie-wrap svg { width: 150px; height: 150px; }
+  .pie-center-total { font-size: 15px; font-weight: 700; fill: var(--text); }
+  .pie-center-label { font-size: 9px; fill: var(--muted); }
 
   /* 币种切换 */
   .cur-switch {
@@ -248,6 +276,15 @@
     </div>
   </div>
 
+  <div class="budget-card" id="budgetCard">
+    <div class="budget-top">
+      <span id="budgetLabel">本月预算</span>
+      <span class="edit-budget" id="editBudget">设置预算 ✎</span>
+    </div>
+    <div class="budget-bar" id="budgetBarWrap"><i id="budgetBar"></i></div>
+    <div class="budget-note" id="budgetNote">还没设预算,点右上角设置一个,帮你管住手 💪</div>
+  </div>
+
   <div class="add-card">
     <div class="row">
       <input type="number" id="amount" placeholder="金额" inputmode="decimal" step="0.01">
@@ -270,6 +307,10 @@
         <span class="tool" id="csvBtn">📄 导出Excel</span>
       </div>
       <span class="clear" id="clearAll">清空</span>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="🔍 搜索备注 / 分类…">
+      <select id="filterCat" class="filter-cat"></select>
     </div>
     <div id="list"></div>
     <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
@@ -314,6 +355,10 @@ const CURRENCIES = {
 let currency = localStorage.getItem('currency') || 'JPY';
 if (!CURRENCIES[currency]) currency = 'JPY';
 const curInfo = () => CURRENCIES[currency];
+
+let budget = Number(localStorage.getItem('budget') || 0);
+let searchText = '';
+let filterCat = '全部';
 
 const $ = id => document.getElementById(id);
 const fmt = n => {
@@ -373,16 +418,33 @@ function render() {
   $('progBar').style.width = pct + '%';
   $('progBar').style.background = balance < 0 ? '#ffe08a' : '#fff';
 
+  // 预算提醒（本月支出 vs 预算）
+  renderBudget(monthSum);
+
+  // 搜索 / 分类筛选
+  const q = searchText.trim().toLowerCase();
+  const matches = r => {
+    const catName = r.type === 'income' ? '工资' : r.cat;
+    if (filterCat !== '全部' && catName !== filterCat) return false;
+    if (q && !((r.note || '').toLowerCase().includes(q) || catName.toLowerCase().includes(q))) return false;
+    return true;
+  };
+  const filtered = records.filter(matches);
+
   // 按天分组
   const groups = {};
-  [...records].sort((a,b) => b.ts - a.ts).forEach(r => {
+  [...filtered].sort((a,b) => b.ts - a.ts).forEach(r => {
     const k = dayKey(r.ts);
     (groups[k] = groups[k] || []).push(r);
   });
 
   const keys = Object.keys(groups);
   if (keys.length === 0) {
-    $('list').innerHTML = '<div class="empty">还没有记账，记下第一笔吧 ✏️</div>';
+    const hasFilter = q || filterCat !== '全部';
+    $('list').innerHTML = '<div class="empty">' +
+      (records.length === 0 ? '还没有记账，记下第一笔吧 ✏️' :
+       hasFilter ? '没有符合条件的记录 🔍' : '还没有记账，记下第一笔吧 ✏️') + '</div>';
+    if ($('monthlyView').style.display !== 'none') renderMonthly();
     return;
   }
 
@@ -417,6 +479,13 @@ function render() {
     </div>`;
   }).join('');
 
+  // 筛选时顶部显示「共 N 笔 · 合计」
+  if (q || filterCat !== '全部') {
+    const spendSum = filtered.reduce((s, r) => s + (r.type === 'income' ? 0 : r.amount), 0);
+    const banner = `<div class="filter-result">共 ${filtered.length} 笔${filterCat !== '全部' && filterCat !== '工资' ? ' · 支出合计 ' + fmt(spendSum) : ''}</div>`;
+    $('list').innerHTML = banner + $('list').innerHTML;
+  }
+
   document.querySelectorAll('.del').forEach(el => {
     el.onclick = (e) => {
       e.stopPropagation();
@@ -430,6 +499,38 @@ function render() {
   });
 
   if ($('monthlyView').style.display !== 'none') renderMonthly();
+}
+
+// 预算提醒
+function renderBudget(monthSum) {
+  const bar = $('budgetBar'), wrap = $('budgetBarWrap'), note = $('budgetNote');
+  if (!budget || budget <= 0) {
+    $('budgetLabel').textContent = '本月预算';
+    $('editBudget').textContent = '设置预算 ✎';
+    bar.style.width = '0%';
+    wrap.className = 'budget-bar';
+    note.className = 'budget-note';
+    note.textContent = '还没设预算，点右上角设置一个，帮你管住手 💪';
+    return;
+  }
+  $('editBudget').textContent = '修改预算 ✎';
+  const ratio = monthSum / budget;
+  const left = budget - monthSum;
+  bar.style.width = Math.min(ratio * 100, 100) + '%';
+  $('budgetLabel').textContent = '本月预算 ' + fmt(budget);
+  if (ratio >= 1) {
+    wrap.className = 'budget-bar over';
+    note.className = 'budget-note over';
+    note.textContent = `⚠️ 已超支 ${fmt(monthSum - budget)}（已花 ${fmt(monthSum)}）`;
+  } else if (ratio >= 0.8) {
+    wrap.className = 'budget-bar warn';
+    note.className = 'budget-note warn';
+    note.textContent = `快到上限了！已花 ${fmt(monthSum)}，还剩 ${fmt(left)}（${Math.round(ratio*100)}%）`;
+  } else {
+    wrap.className = 'budget-bar';
+    note.className = 'budget-note';
+    note.textContent = `已花 ${fmt(monthSum)}，还剩 ${fmt(left)}（${Math.round(ratio*100)}%）`;
+  }
 }
 
 // 修改一笔记录（金额 + 备注）
@@ -500,9 +601,7 @@ function renderMonthly() {
     const isNow = k === nowPrefix;
     // 各分类排序
     const entries = Object.entries(m.cats).sort((a,b) => b[1] - a[1]);
-    const bar = entries.map(([cat, v]) =>
-      `<i style="width:${(v/m.total*100).toFixed(1)}%;background:${colorOf(cat)}"></i>`
-    ).join('');
+    const donut = pieSVG(entries, m.total);
     const rows = entries.map(([cat, v]) => `
       <div class="brk-row">
         <span class="dot" style="background:${colorOf(cat)}"></span>
@@ -532,10 +631,31 @@ function renderMonthly() {
         <div class="total">${fmt(m.total)}</div>
       </div>
       ${momHtml}
-      <div class="bar" style="margin-top:10px">${bar}</div>
+      <div class="pie-wrap">${donut}</div>
       <div class="breakdown">${rows}</div>
     </div>`;
   }).join('');
+}
+
+// 生成环形饼图 SVG
+function pieSVG(entries, total) {
+  const cx = 75, cy = 75, r = 54, C = 2 * Math.PI * r, w = 26;
+  let offset = 0;
+  const segs = entries.map(([cat, v]) => {
+    const frac = total > 0 ? v / total : 0;
+    const dash = frac * C;
+    const s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorOf(cat)}"
+      stroke-width="${w}" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}"
+      stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"></circle>`;
+    offset += dash;
+    return s;
+  }).join('');
+  return `<svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f0f1f5" stroke-width="${w}"></circle>
+    ${segs}
+    <text x="${cx}" y="${cy-2}" text-anchor="middle" class="pie-center-total">${fmt(total)}</text>
+    <text x="${cx}" y="${cy+13}" text-anchor="middle" class="pie-center-label">本月支出</text>
+  </svg>`;
 }
 
 // 选项卡切换
@@ -556,6 +676,27 @@ $('amount').addEventListener('keydown', e => { if (e.key === 'Enter') addRecord(
 $('clearAll').onclick = () => {
   if (records.length && confirm('确定清空全部记账记录吗？')) { records = []; save(); render(); }
 };
+
+// 设置本月预算
+$('editBudget').onclick = () => {
+  const cur = budget > 0 ? budget : '';
+  const input = prompt('设置每月预算（' + curInfo().symbol + '）：\n本月支出快到/超过预算时会变黄、变红提醒。\n（留空并确定可取消预算）', cur);
+  if (input === null) return;
+  if (input.trim() === '') { budget = 0; localStorage.removeItem('budget'); render(); return; }
+  const v = parseFloat(input);
+  if (isNaN(v) || v < 0) { alert('请输入有效金额'); return; }
+  budget = roundCur(v);
+  localStorage.setItem('budget', budget);
+  render();
+};
+
+// 分类筛选下拉
+$('filterCat').innerHTML =
+  ['全部', ...CATS.map(c => c.key), '工资']
+    .map(k => `<option value="${k}">${k === '全部' ? '全部分类' : (k === '工资' ? '💰 工资' : (iconOf(k) + ' ' + k))}</option>`)
+    .join('');
+$('filterCat').onchange = () => { filterCat = $('filterCat').value; render(); };
+$('searchInput').addEventListener('input', () => { searchText = $('searchInput').value; render(); });
 
 // 按当前货币的小数位取整
 const roundCur = v => { const d = curInfo().dec; const p = Math.pow(10, d); return Math.round(v * p) / p; };
@@ -617,7 +758,7 @@ function todayStr() {
 // 备份：导出可恢复的 JSON 文件
 $('backupBtn').onclick = () => {
   if (!records.length) { alert('还没有记录可备份'); return; }
-  const data = { app: '每日记账', version: 1, currency, records };
+  const data = { app: '每日记账', version: 1, currency, budget, records };
   downloadFile('记账备份-' + todayStr() + '.json', JSON.stringify(data, null, 2), 'application/json');
 };
 
@@ -639,6 +780,10 @@ $('restoreFile').onchange = (e) => {
         localStorage.setItem('currency', currency);
         $('curSelect').value = currency;
         applyCurrency();
+      }
+      if (typeof data.budget === 'number' && data.budget > 0) {
+        budget = data.budget;
+        localStorage.setItem('budget', budget);
       }
       save(); render();
       alert('恢复成功，共 ' + records.length + ' 条记录');
