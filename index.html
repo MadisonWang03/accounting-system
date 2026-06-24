@@ -13,6 +13,14 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
+<script>
+  // 尽早应用主题，避免刷新瞬间闪白
+  (function(){
+    var t = localStorage.getItem('theme');
+    if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -22,8 +30,30 @@
     --accent: #4f7cff;
     --danger: #ff5a5f;
     --line: #ececf0;
+    --input-bg: #fafbfc;
+    --chip: #f2f3f7;
+    --chip-active: #ffffff;
+    --icon-bg: #eef2ff;
+    --income-bg: #e7f8ef;
+    --track: #eef0f4;
     --radius: 16px;
     --shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  [data-theme="dark"] {
+    --bg: #15171c;
+    --card: #1f232b;
+    --text: #f0f1f3;
+    --muted: #9aa0ab;
+    --accent: #5d86ff;
+    --danger: #ff6b70;
+    --line: #2e333d;
+    --input-bg: #262b33;
+    --chip: #2a2f38;
+    --chip-active: #3a414d;
+    --icon-bg: #2b3242;
+    --income-bg: #213528;
+    --track: #2a2f38;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -41,7 +71,15 @@
   header {
     padding: calc(28px + env(safe-area-inset-top)) 0 18px;
     text-align: center;
+    position: relative;
   }
+  .theme-toggle {
+    position: absolute; right: 0; top: calc(24px + env(safe-area-inset-top));
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--chip); font-size: 18px; cursor: pointer; user-select: none;
+  }
+  .theme-toggle:active { transform: scale(0.92); }
   header h1 { margin: 0; font-size: 20px; font-weight: 600; }
   header .date { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
@@ -69,9 +107,9 @@
   .budget-top { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
   .edit-budget {
     font-size: 12px; font-weight: 400; color: var(--muted); cursor: pointer;
-    background: #f2f3f7; padding: 5px 10px; border-radius: 8px;
+    background: var(--chip); padding: 5px 10px; border-radius: 8px;
   }
-  .budget-bar { height: 10px; border-radius: 6px; background: #eef0f4; overflow: hidden; margin: 12px 0 8px; }
+  .budget-bar { height: 10px; border-radius: 6px; background: var(--track); overflow: hidden; margin: 12px 0 8px; }
   .budget-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: #2eb872; transition: width .3s, background .3s; }
   .budget-bar.warn i { background: #ffb22e; }
   .budget-bar.over i { background: var(--danger); }
@@ -100,19 +138,19 @@
     border-radius: 12px;
     padding: 13px 14px;
     font-size: 16px;
-    background: #fafbfc;
+    background: var(--input-bg);
     color: var(--text);
     outline: none;
     transition: border-color .15s;
   }
-  input:focus, select:focus { border-color: var(--accent); background: #fff; }
+  input:focus, select:focus { border-color: var(--accent); background: var(--card); }
   .cats { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
   .cat {
     flex: 1 1 auto;
     text-align: center;
     padding: 9px 0;
     border-radius: 10px;
-    background: #f2f3f7;
+    background: var(--chip);
     font-size: 13px;
     cursor: pointer;
     user-select: none;
@@ -144,10 +182,10 @@
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
   .tool {
     font-size: 12px; color: var(--text); cursor: pointer;
-    background: #fff; border: 1px solid var(--line);
+    background: var(--card); border: 1px solid var(--line);
     padding: 6px 10px; border-radius: 8px; box-shadow: var(--shadow);
   }
-  .tool:active { background: #f2f3f7; }
+  .tool:active { background: var(--chip); }
 
   .day-group { margin-bottom: 16px; }
   .day-label {
@@ -163,10 +201,10 @@
     box-shadow: var(--shadow);
   }
   .item.edit-item { cursor: pointer; }
-  .item.edit-item:active { background: #f7f8fb; }
+  .item.edit-item:active { background: var(--chip); }
   .item .icon {
     width: 38px; height: 38px; border-radius: 10px;
-    background: #eef2ff; color: var(--accent);
+    background: var(--icon-bg); color: var(--accent);
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; margin-right: 12px; flex-shrink: 0;
   }
@@ -175,7 +213,7 @@
   .item .meta .time { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .item .amt { font-size: 16px; font-weight: 600; }
   .item .amt.plus { color: #2eb872; }
-  .item .icon.income { background: #e7f8ef; }
+  .item .icon.income { background: var(--income-bg); }
   .item .del {
     margin-left: 12px; color: var(--muted); cursor: pointer;
     font-size: 18px; padding: 4px;
@@ -185,7 +223,7 @@
   /* 选项卡 */
   .tabs {
     display: flex; gap: 6px;
-    background: #eceef3; border-radius: 12px; padding: 4px;
+    background: var(--chip); border-radius: 12px; padding: 4px;
     margin: 24px 0 14px;
   }
   .tab {
@@ -193,7 +231,7 @@
     font-size: 14px; border-radius: 9px; cursor: pointer;
     color: var(--muted); transition: all .15s;
   }
-  .tab.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+  .tab.active { background: var(--chip-active); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 
   /* 月度总结卡 */
   .month-card {
@@ -207,7 +245,7 @@
   .month-card .top .m { font-size: 15px; font-weight: 600; }
   .month-card .top .m small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
   .month-card .top .total { font-size: 20px; font-weight: 700; }
-  .bar { display: flex; height: 8px; border-radius: 5px; overflow: hidden; margin-bottom: 14px; background: #f0f1f5; }
+  .bar { display: flex; height: 8px; border-radius: 5px; overflow: hidden; margin-bottom: 14px; background: var(--track); }
   .bar i { display: block; height: 100%; }
   .breakdown { display: flex; flex-direction: column; gap: 9px; }
   .brk-row { display: flex; align-items: center; font-size: 13px; }
@@ -219,11 +257,18 @@
   .pie-wrap svg { width: 150px; height: 150px; }
   .pie-center-total { font-size: 15px; font-weight: 700; fill: var(--text); }
   .pie-center-label { font-size: 9px; fill: var(--muted); }
+  .pie-bg { stroke: var(--track); }
+  .brk-row .v.plus { color: #2eb872; }
+  .inc-section { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .inc-head { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+  .inc-head .inc-total { color: #2eb872; }
+  .net-row { margin-top: 12px; font-size: 13px; color: var(--muted); text-align: right; }
+  .net-row b { color: var(--text); font-size: 15px; margin-left: 4px; }
 
   /* 币种切换 */
   .cur-switch {
     display: inline-flex; gap: 4px; margin-top: 12px;
-    background: #eceef3; border-radius: 10px; padding: 3px;
+    background: var(--chip); border-radius: 10px; padding: 3px;
   }
   .cur-switch span {
     padding: 5px 14px; font-size: 12px; border-radius: 8px;
@@ -244,7 +289,7 @@
 
   /* 货币选择 */
   .cur-select {
-    margin-top: 12px; border: 1px solid var(--line); background: #fff;
+    margin-top: 12px; border: 1px solid var(--line); background: var(--card);
     border-radius: 10px; padding: 7px 12px; font-size: 13px; color: var(--text);
     outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
     text-align: center; text-align-last: center;
@@ -260,13 +305,14 @@
 <body>
 <div class="wrap">
   <header>
+    <div class="theme-toggle" id="themeToggle" title="切换深色 / 浅色">🌙</div>
     <h1>每日记账</h1>
     <div class="date" id="todayDate"></div>
     <select id="curSelect" class="cur-select"></select>
   </header>
 
   <div class="summary">
-    <div class="label">当前余额 <span class="edit-salary" id="editSalary">加工资 ＋</span></div>
+    <div class="label">当前余额 <span class="edit-salary" id="editSalary">加收入 ＋</span></div>
     <div class="amount" id="remain">0円</div>
     <div class="prog"><i id="progBar"></i></div>
     <div class="sub">
@@ -331,6 +377,19 @@ const CATS = [
   { key: '其他', icon: '📌', color: '#8a8f99' },
 ];
 const colorOf = k => (CATS.find(c => c.key === k) || {}).color || '#8a8f99';
+
+// 收入分类
+const INCOME_CATS = [
+  { key: '工资', icon: '💴', color: '#2eb872' },
+  { key: '奖金', icon: '🎁', color: '#f5a623' },
+  { key: '兼职', icon: '🛠️', color: '#4f7cff' },
+  { key: '投资', icon: '📈', color: '#a85cff' },
+  { key: '红包', icon: '🧧', color: '#ff5a5f' },
+  { key: '其他', icon: '➕', color: '#8a8f99' },
+];
+const incInfo = k => INCOME_CATS.find(c => c.key === k) || INCOME_CATS[0];
+const incatOf = r => r.incat || '工资'; // 兼容旧记录
+
 let selectedCat = '餐饮';
 let records = JSON.parse(localStorage.getItem('expenses') || '[]');
 // 支持的货币：symbol 符号 / dec 小数位 / after 符号是否放在数字后 / label 名称
@@ -424,9 +483,14 @@ function render() {
   // 搜索 / 分类筛选
   const q = searchText.trim().toLowerCase();
   const matches = r => {
-    const catName = r.type === 'income' ? '工资' : r.cat;
-    if (filterCat !== '全部' && catName !== filterCat) return false;
-    if (q && !((r.note || '').toLowerCase().includes(q) || catName.toLowerCase().includes(q))) return false;
+    const isInc = r.type === 'income';
+    const catName = isInc ? incatOf(r) : r.cat;
+    if (filterCat !== '全部') {
+      if (filterCat === '收入') { if (!isInc) return false; }
+      else if (isInc || catName !== filterCat) return false;
+    }
+    if (q && !((r.note || '').toLowerCase().includes(q) || catName.toLowerCase().includes(q)
+        || (isInc && '收入'.includes(q)))) return false;
     return true;
   };
   const filtered = records.filter(matches);
@@ -453,10 +517,11 @@ function render() {
     const label = k === todayK ? '今天' : k;
     const items = groups[k].map(r => {
       if (r.type === 'income') {
+        const ic = incatOf(r);
         return `<div class="item edit-item" data-edit="${r.ts}">
-          <div class="icon income">💰</div>
+          <div class="icon income">${incInfo(ic).icon}</div>
           <div class="meta">
-            <div class="name">工资${r.note ? ' · ' + escapeHtml(r.note) : ''}</div>
+            <div class="name">${ic}${r.note ? ' · ' + escapeHtml(r.note) : ''}</div>
             <div class="time">${timeOf(r.ts)} · 点击修改</div>
           </div>
           <div class="amt plus">+${fmt(r.amount)}</div>
@@ -482,7 +547,7 @@ function render() {
   // 筛选时顶部显示「共 N 笔 · 合计」
   if (q || filterCat !== '全部') {
     const spendSum = filtered.reduce((s, r) => s + (r.type === 'income' ? 0 : r.amount), 0);
-    const banner = `<div class="filter-result">共 ${filtered.length} 笔${filterCat !== '全部' && filterCat !== '工资' ? ' · 支出合计 ' + fmt(spendSum) : ''}</div>`;
+    const banner = `<div class="filter-result">共 ${filtered.length} 笔${filterCat !== '全部' && filterCat !== '收入' ? ' · 支出合计 ' + fmt(spendSum) : ''}</div>`;
     $('list').innerHTML = banner + $('list').innerHTML;
   }
 
@@ -538,7 +603,7 @@ function editRecord(id) {
   const r = records.find(x => String(x.ts) === String(id));
   if (!r) return;
   const isIncome = r.type === 'income';
-  const label = isIncome ? '工资' : r.cat;
+  const label = isIncome ? incatOf(r) : r.cat;
   const a = prompt(`修改「${label}」的金额：`, r.amount);
   if (a === null) return;
   const v = parseFloat(a);
@@ -576,16 +641,21 @@ function monthLabel(prefix) {
 }
 
 function renderMonthly() {
-  // 按月份聚合
+  // 按月份聚合（支出 + 收入分开统计）
   const months = {};
   records.forEach(r => {
-    if (r.type === 'income') return; // 工资不计入支出总结
     const d = new Date(r.ts);
     const prefix = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    if (!months[prefix]) months[prefix] = { total: 0, count: 0, cats: {} };
-    months[prefix].total += r.amount;
-    months[prefix].count++;
-    months[prefix].cats[r.cat] = (months[prefix].cats[r.cat] || 0) + r.amount;
+    if (!months[prefix]) months[prefix] = { total: 0, count: 0, cats: {}, incTotal: 0, incCats: {} };
+    if (r.type === 'income') {
+      const ic = incatOf(r);
+      months[prefix].incTotal += r.amount;
+      months[prefix].incCats[ic] = (months[prefix].incCats[ic] || 0) + r.amount;
+    } else {
+      months[prefix].total += r.amount;
+      months[prefix].count++;
+      months[prefix].cats[r.cat] = (months[prefix].cats[r.cat] || 0) + r.amount;
+    }
   });
 
   const keys = Object.keys(months).sort().reverse();
@@ -625,6 +695,21 @@ function renderMonthly() {
     } else {
       momHtml = `<div class="mom flat">无上月数据可对比</div>`;
     }
+    // 收入分类统计
+    const incEntries = Object.entries(m.incCats).sort((a,b) => b[1] - a[1]);
+    const incRows = incEntries.map(([cat, v]) => `
+      <div class="brk-row">
+        <span class="dot" style="background:${incInfo(cat).color}"></span>
+        <span class="k">${incInfo(cat).icon} ${cat}</span>
+        <span class="pct">${(v/m.incTotal*100).toFixed(0)}%</span>
+        <span class="v plus">+${fmt(v)}</span>
+      </div>`).join('');
+    const incomeBlock = m.incTotal > 0 ? `
+      <div class="inc-section">
+        <div class="inc-head"><span>💰 本月收入</span><span class="inc-total">+${fmt(m.incTotal)}</span></div>
+        <div class="breakdown">${incRows}</div>
+        <div class="net-row">本月结余 <b>${fmt(m.incTotal - m.total)}</b></div>
+      </div>` : '';
     return `<div class="month-card">
       <div class="top">
         <div class="m">${monthLabel(k)}${isNow ? '<small>本月·进行中</small>' : '<small>已结算</small>'}</div>
@@ -633,6 +718,7 @@ function renderMonthly() {
       ${momHtml}
       <div class="pie-wrap">${donut}</div>
       <div class="breakdown">${rows}</div>
+      ${incomeBlock}
     </div>`;
   }).join('');
 }
@@ -651,7 +737,7 @@ function pieSVG(entries, total) {
     return s;
   }).join('');
   return `<svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f0f1f5" stroke-width="${w}"></circle>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" class="pie-bg" stroke-width="${w}"></circle>
     ${segs}
     <text x="${cx}" y="${cy-2}" text-anchor="middle" class="pie-center-total">${fmt(total)}</text>
     <text x="${cx}" y="${cy+13}" text-anchor="middle" class="pie-center-label">本月支出</text>
@@ -692,8 +778,8 @@ $('editBudget').onclick = () => {
 
 // 分类筛选下拉
 $('filterCat').innerHTML =
-  ['全部', ...CATS.map(c => c.key), '工资']
-    .map(k => `<option value="${k}">${k === '全部' ? '全部分类' : (k === '工资' ? '💰 工资' : (iconOf(k) + ' ' + k))}</option>`)
+  ['全部', ...CATS.map(c => c.key), '收入']
+    .map(k => `<option value="${k}">${k === '全部' ? '全部分类' : (k === '收入' ? '💰 收入' : (iconOf(k) + ' ' + k))}</option>`)
     .join('');
 $('filterCat').onchange = () => { filterCat = $('filterCat').value; render(); };
 $('searchInput').addEventListener('input', () => { searchText = $('searchInput').value; render(); });
@@ -701,14 +787,19 @@ $('searchInput').addEventListener('input', () => { searchText = $('searchInput')
 // 按当前货币的小数位取整
 const roundCur = v => { const d = curInfo().dec; const p = Math.pow(10, d); return Math.round(v * p) / p; };
 
-// 加工资（累计进余额）
+// 加收入（累计进余额，可选收入类型）
 $('editSalary').onclick = () => {
-  const input = prompt('这次发了多少工资？\n会直接加进当前余额，上月没花完的会保留。', '');
+  const input = prompt('这次收入多少？\n会直接加进当前余额，上月没花完的会保留。', '');
   if (input === null) return;
   const v = parseFloat(input);
   if (isNaN(v) || v <= 0) { alert('请输入有效金额'); return; }
+  const menu = INCOME_CATS.map((c, i) => (i+1) + ' ' + c.icon + ' ' + c.key).join('\n');
+  const pick = prompt('选择收入类型（输入数字）：\n' + menu, '1');
+  if (pick === null) return;
+  const idx = parseInt(pick, 10) - 1;
+  const incat = (INCOME_CATS[idx] || INCOME_CATS[0]).key;
   const note = prompt('备注（可留空，例如「6月工资」）：', '') || '';
-  records.push({ ts: Date.now(), amount: roundCur(v), type: 'income', note: note.trim() });
+  records.push({ ts: Date.now(), amount: roundCur(v), type: 'income', incat, note: note.trim() });
   save();
   render();
 };
@@ -804,7 +895,7 @@ $('csvBtn').onclick = () => {
     const date = dayKey(r.ts);
     const time = timeOf(r.ts);
     const isInc = r.type === 'income';
-    rows.push([date, time, isInc ? '工资' : '支出', isInc ? '' : r.cat, r.note || '', r.amount]);
+    rows.push([date, time, isInc ? '收入' : '支出', isInc ? incatOf(r) : r.cat, r.note || '', r.amount]);
   });
   const csv = rows.map(row =>
     row.map(c => {
@@ -814,6 +905,24 @@ $('csvBtn').onclick = () => {
   ).join('\n');
   // 加 BOM，Excel 才能正确识别中文
   downloadFile('记账明细-' + todayStr() + '.csv', '﻿' + csv, 'text/csv;charset=utf-8');
+};
+
+// 深色 / 浅色切换
+function applyTheme(t) {
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  $('themeToggle').textContent = t === 'dark' ? '☀️' : '🌙';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#15171c' : '#4f7cff');
+}
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+applyTheme(currentTheme());
+$('themeToggle').onclick = () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
 };
 
 $('todayDate').textContent = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });

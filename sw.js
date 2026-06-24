@@ -1,4 +1,4 @@
-const CACHE = 'jizhang-v4';
+const CACHE = 'jizhang-v5';
 const ASSETS = ['./', './index.html', './manifest.json', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
